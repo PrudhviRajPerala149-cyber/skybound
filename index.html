@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Skybound — An Aerial Expedition</title>
+    <meta
+      name="description"
+      content="Fly a low-poly airship through a golden-hour sky of floating islands."
+    />
+  </head>
+  <body>
+    <canvas id="scene"></canvas>
+
+    <!-- Heads-up display -->
+    <div id="hud" class="hud" aria-hidden="true">
+      <div class="compass-wrap">
+        <div class="compass" id="compass">
+          <div class="compass__ribbon" id="compass-ribbon"></div>
+          <div class="compass__needle"></div>
+        </div>
+        <div class="compass__heading" id="compass-heading">000°</div>
+      </div>
+
+      <div class="readouts">
+        <div class="readout">
+          <span class="readout__label">Speed</span>
+          <span class="readout__value" id="readout-speed">0</span>
+          <span class="readout__unit">kn</span>
+        </div>
+        <div class="readout">
+          <span class="readout__label">Altitude</span>
+          <span class="readout__value" id="readout-altitude">0</span>
+          <span class="readout__unit">ft</span>
+        </div>
+      </div>
+
+      <!-- Expedition log: which sections have been found so far -->
+      <section class="tracker" id="tracker">
+        <header class="tracker__head">
+          <h2 class="tracker__label">Expedition Log</h2>
+          <p class="tracker__count">
+            <span id="tracker-found">0</span
+            ><span class="tracker__of">/</span><span id="tracker-total">0</span>
+          </p>
+        </header>
+        <div class="tracker__bar"><div class="tracker__fill" id="tracker-fill"></div></div>
+        <ul class="tracker__list" id="tracker-list"></ul>
+      </section>
+
+      <div class="corner-controls">
+        <button id="mute-toggle" class="icon-button" type="button" title="Mute music (M)">
+          <span id="mute-icon">♪</span>
+        </button>
+        <button id="credits-toggle" class="icon-button" type="button" title="Credits">
+          i
+        </button>
+      </div>
+    </div>
+
+    <!-- Discovery toast -->
+    <div class="toast" id="toast" hidden>
+      <span class="toast__eyebrow">Landmark discovered</span>
+      <span class="toast__title" id="toast-title"></span>
+    </div>
+
+    <!-- Resume section panel -->
+    <aside class="reader" id="reader" hidden>
+      <button id="reader-close" class="reader__close" type="button" title="Close (Esc)">
+        ×
+      </button>
+      <p class="reader__eyebrow" id="reader-eyebrow"></p>
+      <h2 class="reader__title" id="reader-title"></h2>
+      <div class="reader__body" id="reader-body"></div>
+    </aside>
+
+    <!-- Credits panel -->
+    <aside id="credits" class="credits" hidden>
+      <h2 class="credits__title">Credits</h2>
+      <ul class="credits__list">
+        <li>
+          <em>"Lowpoly Flying Ship"</em> by Wordofcurse, via Sketchfab
+        </li>
+        <li>
+          <em>"Low Poly Floating Island"</em> by camerondymott, via Sketchfab
+        </li>
+        <li>
+          <em>"LowPoly: small floating island"</em> by Jean-Yves TRAN, via Sketchfab
+        </li>
+        <li>
+          <em>"Adventure Documentary"</em> by leberch, via Pixabay
+        </li>
+      </ul>
+      <p class="credits__note">
+        Models licensed under Creative Commons Attribution (CC&nbsp;BY&nbsp;4.0).
+        Music courtesy of Pixabay.
+      </p>
+    </aside>
+
+    <!-- Start screen -->
+    <div id="start-screen" class="start">
+      <div class="start__inner">
+        <p class="start__eyebrow">An Aerial Expedition</p>
+        <h1 class="start__title">Skybound</h1>
+        <p class="start__premise">
+          A resume you fly through rather than scroll. Every island in this sky
+          holds one chapter — find the beacons, and they'll open as you reach them.
+        </p>
+
+        <p class="start__signature">
+          <span id="profile-name"></span>
+          <span class="start__rule"></span>
+          <span id="profile-title"></span>
+        </p>
+
+        <ul class="legend">
+          <li><kbd>W</kbd><kbd>S</kbd><span>Thrust</span></li>
+          <li><kbd>A</kbd><kbd>D</kbd><span>Turn</span></li>
+          <li><kbd>Mouse</kbd><span>Look</span></li>
+          <li><kbd>Shift</kbd><span>Boost</span></li>
+          <li><kbd>Space</kbd><kbd>Ctrl</kbd><span>Climb / Dive</span></li>
+          <li><kbd>M</kbd><span>Mute</span></li>
+        </ul>
+
+        <div class="start__loading" id="start-loading">
+          <div class="start__bar"><div class="start__bar-fill" id="loading-fill"></div></div>
+          <p class="start__status" id="loading-status">Charting the archipelago…</p>
+        </div>
+
+        <button id="start-button" class="start__button" type="button" disabled>
+          Begin Flight
+        </button>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
