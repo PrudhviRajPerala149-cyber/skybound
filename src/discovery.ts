@@ -2,8 +2,11 @@ import type { ResumeSection } from "./content/resume";
 import type { Ambience } from "./audio";
 
 /** How long the toast sits alone before the panel slides in behind it. */
-const PANEL_DELAY = 1500;
+const PANEL_DELAY = 1100;
 const TOAST_DURATION = 3200;
+
+/** Matches the longest leaving transition in the stylesheet. */
+const CLOSE_DURATION = 380;
 
 function el<T extends HTMLElement>(id: string): T {
   const node = document.getElementById(id);
@@ -35,6 +38,13 @@ export class Discovery {
 
   private toastTimer?: number;
   private panelTimer?: number;
+  private closeTimer?: number;
+
+  /**
+   * Tracked explicitly rather than read off `hidden`, because the element
+   * stays in the document while it animates out.
+   */
+  private open = false;
 
   /**
    * `onModalChange` lets the caller suspend the flight controls while a
@@ -57,7 +67,7 @@ export class Discovery {
 
   /** True while a section panel has the screen. */
   get isOpen(): boolean {
-    return !this.scrim.hidden;
+    return this.open;
   }
 
   private buildTracker(): void {
@@ -127,9 +137,18 @@ export class Discovery {
       }),
     );
 
+    window.clearTimeout(this.closeTimer);
+    this.open = true;
+
     this.scrim.hidden = false;
-    // Next frame, so the opening transition actually runs.
-    requestAnimationFrame(() => this.scrim.classList.add("is-open"));
+    this.scrim.style.pointerEvents = "";
+
+    // Force the browser to compute styles for the now-visible element before
+    // flipping the class. A bare requestAnimationFrame can land before that
+    // recalculation, in which case there is no start value to animate from and
+    // the card simply pops in — which is exactly how it looked.
+    void this.scrim.offsetWidth;
+    this.scrim.classList.add("is-open");
 
     this.onModalChange(true);
   }
@@ -140,12 +159,22 @@ export class Discovery {
    */
   closeReader(): void {
     window.clearTimeout(this.panelTimer);
-    if (this.scrim.hidden) return;
+    if (!this.open) return;
 
+    this.open = false;
     this.scrim.classList.remove("is-open");
-    this.scrim.hidden = true;
 
+    // Stop swallowing clicks the instant it starts leaving, and give the ship
+    // back straight away — waiting for the fade would feel unresponsive.
+    this.scrim.style.pointerEvents = "none";
     this.onModalChange(false);
+
+    // Only hide once it has actually faded; hiding in this same tick is what
+    // removed the closing animation entirely.
+    window.clearTimeout(this.closeTimer);
+    this.closeTimer = window.setTimeout(() => {
+      if (!this.open) this.scrim.hidden = true;
+    }, CLOSE_DURATION);
   }
 
   get foundCount(): number {
