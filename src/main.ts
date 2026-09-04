@@ -12,6 +12,7 @@ import { Hud, StartScreen, Credits } from "./hud";
 import { LandmarkField } from "./scene/landmarks";
 import { Discovery } from "./discovery";
 import { Guide } from "./guide";
+import { SkyText } from "./scene/skytext";
 import { profile, sections } from "./content/resume";
 
 /** A tab-switch stall must never let the ship tunnel through a collider. */
@@ -78,6 +79,10 @@ async function boot(): Promise<void> {
 
   const guide = new Guide(landmarks);
 
+  // The visitor's name, hanging ahead of the spawn point until they fly past it.
+  const skyText = new SkyText(profile.name, profile.title);
+  scene.add(skyText.group);
+
   document.getElementById("profile-name")!.textContent = profile.name;
   document.getElementById("profile-title")!.textContent = profile.title;
 
@@ -104,6 +109,7 @@ async function boot(): Promise<void> {
     flight.activate();
     hud.reveal();
     ambience.start();
+    skyText.start();
     requestPointerLock(canvas);
   });
 
@@ -127,6 +133,7 @@ async function boot(): Promise<void> {
     if (reached) discovery.record(reached.section);
 
     guide.update(dt, flight.position, -flight.yaw);
+    skyText.update(dt, flight.position);
 
     chase.update(dt, flight.speed, MAX_SPEED_REFERENCE);
     world.update(dt, elapsed, flight.position);
@@ -147,6 +154,7 @@ async function boot(): Promise<void> {
       landmarks,
       discovery,
       guide,
+      skyText,
     };
   }
 }
