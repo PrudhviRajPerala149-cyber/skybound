@@ -4,6 +4,21 @@ import type { ShipRig } from "./ship";
 const LOOK_SENSITIVITY = 0.0022;
 const MAX_PITCH = THREE.MathUtils.degToRad(80);
 
+/**
+ * How quickly the ship's actual heading catches up to where the mouse has
+ * asked it to point. Higher is snappier, lower is floatier; this is the one
+ * value to tune if the mouse feels heavy or too loose.
+ */
+const LOOK_SMOOTHING = 14;
+
+/**
+ * Largest movement accepted from a single mouse event, in pixels. Pointer
+ * lock occasionally emits a huge spike — on acquiring the lock, or when the
+ * OS applies acceleration to a fast flick — which would otherwise whip the
+ * ship right around.
+ */
+const MAX_LOOK_STEP = 110;
+
 const THRUST = 42;
 const VERTICAL_THRUST = 22;
 const YAW_RATE = 1.5;
@@ -44,9 +59,42 @@ export class FlightController {
   readonly position = new THREE.Vector3(0, 26, 96);
   readonly velocity = new THREE.Vector3();
 
+  /**
+   * Where the ship is actually pointing. The mouse steers `targetYaw` /
+   * `targetPitch`, and these ease toward it every frame, which is what turns
+   * a burst of raw mouse events into smooth motion.
+   *
+   * Assigning to either snaps both the live and target value, so teleporting
+   * the ship never leaves it fighting a stale target.
+   */
+  private _yaw = 0;
+  private _pitch = -0.05;
+
+  private targetYaw = 0;
+  private targetPitch = -0.05;
+
+  /** Mouse movement received since the last frame, in pixels. */
+  private pendingLookX = 0;
+  private pendingLookY = 0;
+
   /** Facing -Z from the spawn point, i.e. in toward the archipelago. */
-  yaw = 0;
-  pitch = -0.05;
+  get yaw(): number {
+    return this._yaw;
+  }
+
+  set yaw(value: number) {
+    this._yaw = value;
+    this.targetYaw = value;
+  }
+
+  get pitch(): number {
+    return this._pitch;
+  }
+
+  set pitch(value: number) {
+    this._pitch = THREE.MathUtils.clamp(value, -MAX_PITCH, MAX_PITCH);
+    this.targetPitch = this._pitch;
+  }
 
   /** Ground speed in world units/second. */
   get speed(): number {
@@ -130,14 +178,17 @@ export class FlightController {
     });
   }
 
-  /** Both look paths funnel through here so they behave identically. */
+  /**
+   * Both look paths funnel through here so they behave identically.
+   *
+   * Mouse events arrive at the pointing device's polling rate, which is
+   * unrelated to the frame rate — several can land between two frames, or
+   * none at all. Banking them up and spending them once per frame in
+   * `update` is what keeps the motion even.
+   */
   private applyLook(dx: number, dy: number): void {
-    this.yaw -= dx * LOOK_SENSITIVITY;
-    this.pitch = THREE.MathUtils.clamp(
-      this.pitch - dy * LOOK_SENSITIVITY,
-      -MAX_PITCH,
-      MAX_PITCH,
-    );
+    this.pendingLookX += THREE.MathUtils.clamp(dx, -MAX_LOOK_STEP, MAX_LOOK_STEP);
+    this.pendingLookY += THREE.MathUtils.clamp(dy, -MAX_LOOK_STEP, MAX_LOOK_STEP);
   }
 
   update(dt: number): void {
@@ -156,13 +207,41 @@ export class FlightController {
       (k.has("Space") ? 1 : 0) -
       (k.has("ControlLeft") || k.has("ControlRight") ? 1 : 0);
 
+    // Spend a frame's worth of mouse movement, then let the keys steer the
+    // same target so both inputs share one smoothing path.
+    this.targetYaw -= this.pendingLookX * LOOK_SENSITIVITY;
+    this.targetPitch = THREE.MathUtils.clamp(
+      this.targetPitch - this.pendingLookY * LOOK_SENSITIVITY,
+      -MAX_PITCH,
+      MAX_PITCH,
+    );
+    this.pendingLookX = 0;
+    this.pendingLookY = 0;
+
     if (this.active) {
-      this.yaw += turnInput * YAW_RATE * dt;
+      this.targetYaw += turnInput * YAW_RATE * dt;
     }
 
+    // Framerate-independent ease, so the feel is identical at 30 and 144fps.
+    const follow = 1 - Math.exp(-LOOK_SMOOTHING * dt);
+    const previousYaw = this._yaw;
+    this._yaw += (this.targetYaw - this._yaw) * follow;
+    this._pitch += (this.targetPitch - this._pitch) * follow;
+
     // Orientation first, so thrust is applied along the current heading.
-    this.euler.set(this.pitch, this.yaw, 0);
+    this.euler.set(this._pitch, this._yaw, 0);
     this.rig.root.quaternion.setFromEuler(this.euler);
+
+    // Bank from how fast the ship is actually turning rather than from the
+    // keys alone, so steering with the mouse leans into the turn too.
+    //
+    // The dt guard matters: Clock.getDelta() returns 0 when two frames land in
+    // the same tick, and 0/0 would put a NaN into the hull's rotation, which
+    // is sticky and would make the ship disappear.
+    const turnAmount =
+      dt > 0
+        ? THREE.MathUtils.clamp((this._yaw - previousYaw) / dt / YAW_RATE, -1, 1)
+        : 0;
 
     if (this.active) {
       const power = boosting ? BOOST_MULTIPLIER : 1;
@@ -185,12 +264,12 @@ export class FlightController {
     this.position.addScaledVector(this.velocity, dt);
     this.rig.root.position.copy(this.position);
 
-    this.updateCosmetics(dt, turnInput, boosting);
+    this.updateCosmetics(dt, turnAmount, boosting);
   }
 
   /** Banking, boost lean and idle bob — visual only. */
-  private updateCosmetics(dt: number, turnInput: number, boosting: boolean): void {
-    const targetBank = turnInput * MAX_BANK;
+  private updateCosmetics(dt: number, turnAmount: number, boosting: boolean): void {
+    const targetBank = turnAmount * MAX_BANK;
     this.bank += (targetBank - this.bank) * Math.min(1, BANK_EASE * dt);
 
     this.rig.mesh.rotation.z = this.bank;
