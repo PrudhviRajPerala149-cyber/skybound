@@ -14,6 +14,19 @@
 
     <!-- Heads-up display -->
     <div id="hud" class="hud" aria-hidden="true">
+      <!-- Helm reference: lives on screen now rather than on the start screen -->
+      <section class="controls">
+        <h2 class="controls__label">Helm</h2>
+        <ul class="controls__list">
+          <li><kbd>W</kbd><kbd>S</kbd><span>Thrust</span></li>
+          <li><kbd>A</kbd><kbd>D</kbd><span>Turn</span></li>
+          <li><kbd>Mouse</kbd><span>Look</span></li>
+          <li><kbd>Shift</kbd><span>Boost</span></li>
+          <li><kbd>Space</kbd><kbd>Ctrl</kbd><span>Climb / Dive</span></li>
+          <li><kbd>M</kbd><span>Mute</span></li>
+        </ul>
+      </section>
+
       <div class="compass-wrap">
         <div class="compass" id="compass">
           <div class="compass__ribbon" id="compass-ribbon"></div>
@@ -48,6 +61,23 @@
         <ul class="tracker__list" id="tracker-list"></ul>
       </section>
 
+      <!-- Where to go next, in the log's voice -->
+      <section class="guide" id="guide" hidden>
+        <div class="guide__pointer" id="guide-pointer" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22">
+            <path d="M12 2 L19 20 L12 15.5 L5 20 Z" fill="currentColor" />
+          </svg>
+        </div>
+        <div class="guide__text">
+          <p class="guide__story" id="guide-story"></p>
+          <p class="guide__meta">
+            <span id="guide-target"></span>
+            <span class="guide__dot">·</span>
+            <span id="guide-distance"></span>
+          </p>
+        </div>
+      </section>
+
       <div class="corner-controls">
         <button id="mute-toggle" class="icon-button" type="button" title="Mute music (M)">
           <span id="mute-icon">♪</span>
@@ -79,6 +109,7 @@
         <div class="reader__inner">
           <p class="reader__eyebrow" id="reader-eyebrow"></p>
           <h2 class="reader__title" id="reader-title"></h2>
+          <p class="reader__story" id="reader-story"></p>
           <div class="reader__body" id="reader-body"></div>
           <button class="reader__dismiss" id="reader-dismiss" type="button">
             Resume Flight
@@ -115,25 +146,13 @@
       <div class="start__inner">
         <p class="start__eyebrow">An Aerial Expedition</p>
         <h1 class="start__title">Skybound</h1>
-        <p class="start__premise">
-          A resume you fly through rather than scroll. Every island in this sky
-          holds one chapter — find the beacons, and they'll open as you reach them.
-        </p>
+        <div class="start__story" id="start-story"></div>
 
         <p class="start__signature">
           <span id="profile-name"></span>
           <span class="start__rule"></span>
           <span id="profile-title"></span>
         </p>
-
-        <ul class="legend">
-          <li><kbd>W</kbd><kbd>S</kbd><span>Thrust</span></li>
-          <li><kbd>A</kbd><kbd>D</kbd><span>Turn</span></li>
-          <li><kbd>Mouse</kbd><span>Look</span></li>
-          <li><kbd>Shift</kbd><span>Boost</span></li>
-          <li><kbd>Space</kbd><kbd>Ctrl</kbd><span>Climb / Dive</span></li>
-          <li><kbd>M</kbd><span>Mute</span></li>
-        </ul>
 
         <div class="start__loading" id="start-loading">
           <div class="start__bar"><div class="start__bar-fill" id="loading-fill"></div></div>

@@ -31,6 +31,7 @@ export class Discovery {
   private readonly scrim = el("reader-scrim");
   private readonly readerEyebrow = el("reader-eyebrow");
   private readonly readerTitle = el("reader-title");
+  private readonly readerStory = el("reader-story");
   private readonly readerBody = el("reader-body");
 
   private readonly rows = new Map<string, HTMLElement>();
@@ -128,6 +129,7 @@ export class Discovery {
   openReader(section: ResumeSection): void {
     this.readerEyebrow.textContent = section.eyebrow;
     this.readerTitle.textContent = section.title;
+    this.readerStory.textContent = section.story;
 
     this.readerBody.replaceChildren(
       ...section.body.map((text) => {

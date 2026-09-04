@@ -11,6 +11,7 @@ import { Ambience } from "./audio";
 import { Hud, StartScreen, Credits } from "./hud";
 import { LandmarkField } from "./scene/landmarks";
 import { Discovery } from "./discovery";
+import { Guide } from "./guide";
 import { profile, sections } from "./content/resume";
 
 /** A tab-switch stall must never let the ship tunnel through a collider. */
@@ -75,8 +76,18 @@ async function boot(): Promise<void> {
     flight.setInputEnabled(!open),
   );
 
+  const guide = new Guide(landmarks);
+
   document.getElementById("profile-name")!.textContent = profile.name;
   document.getElementById("profile-title")!.textContent = profile.title;
+
+  document.getElementById("start-story")!.replaceChildren(
+    ...profile.story.map((text) => {
+      const p = document.createElement("p");
+      p.textContent = text;
+      return p;
+    }),
+  );
 
   muteButton.addEventListener("click", () => ambience.toggle());
   window.addEventListener("keydown", (e) => {
@@ -115,6 +126,8 @@ async function boot(): Promise<void> {
     const reached = landmarks.update(dt, elapsed, flight.position);
     if (reached) discovery.record(reached.section);
 
+    guide.update(dt, flight.position, -flight.yaw);
+
     chase.update(dt, flight.speed, MAX_SPEED_REFERENCE);
     world.update(dt, elapsed, flight.position);
     hud.update(dt, flight.headingDegrees, flight.speed, flight.position.y);
@@ -133,6 +146,7 @@ async function boot(): Promise<void> {
       ambience,
       landmarks,
       discovery,
+      guide,
     };
   }
 }
