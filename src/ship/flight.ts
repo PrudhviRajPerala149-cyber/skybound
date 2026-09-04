@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import type { ShipRig } from "./ship";
 
-const LOOK_SENSITIVITY = 0.0022;
+const LOOK_SENSITIVITY = 0.0012;
 const MAX_PITCH = THREE.MathUtils.degToRad(80);
 
 /**
@@ -9,7 +9,7 @@ const MAX_PITCH = THREE.MathUtils.degToRad(80);
  * asked it to point. Higher is snappier, lower is floatier; this is the one
  * value to tune if the mouse feels heavy or too loose.
  */
-const LOOK_SMOOTHING = 14;
+const LOOK_SMOOTHING = 7;
 
 /**
  * Largest movement accepted from a single mouse event, in pixels. Pointer
@@ -106,6 +106,8 @@ export class FlightController {
   private readonly euler = new THREE.Euler(0, 0, 0, "YXZ");
 
   private bank = 0;
+  private inputEnabled = true;
+  private wasPointerLocked = false;
   private dragging = false;
   private lastPointer: { x: number; y: number } | null = null;
   private active = false;
@@ -123,9 +125,45 @@ export class FlightController {
     this.active = true;
   }
 
+  /** True only when the ship should respond to the player at all. */
+  private get accepting(): boolean {
+    return this.active && this.inputEnabled;
+  }
+
+  /**
+   * Suspends the controls entirely while a modal panel is open, so the ship
+   * cannot be flown out from under a section the visitor is reading.
+   *
+   * Held keys and buffered mouse movement are dropped rather than replayed on
+   * resume — otherwise the ship would lurch the moment the panel closed. The
+   * pointer lock is released too, so the cursor is free to reach the close
+   * button, and restored afterwards if it was held before.
+   */
+  setInputEnabled(enabled: boolean): void {
+    if (this.inputEnabled === enabled) return;
+    this.inputEnabled = enabled;
+
+    if (!enabled) {
+      this.keys.clear();
+      this.pendingLookX = 0;
+      this.pendingLookY = 0;
+      this.dragging = false;
+      this.lastPointer = null;
+
+      this.wasPointerLocked = document.pointerLockElement === this.canvas;
+      if (this.wasPointerLocked) document.exitPointerLock();
+      return;
+    }
+
+    if (this.wasPointerLocked) {
+      this.wasPointerLocked = false;
+      requestPointerLock(this.canvas);
+    }
+  }
+
   private bindInput(): void {
     window.addEventListener("keydown", (e) => {
-      if (!this.active) return;
+      if (!this.accepting) return;
       // Space and arrows would otherwise scroll the page.
       if (
         [" ", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)
@@ -144,13 +182,13 @@ export class FlightController {
 
     // Pointer lock is the primary look control.
     this.canvas.addEventListener("click", () => {
-      if (this.active && !document.pointerLockElement) {
+      if (this.accepting && !document.pointerLockElement) {
         requestPointerLock(this.canvas);
       }
     });
 
     document.addEventListener("mousemove", (e) => {
-      if (!this.active) return;
+      if (!this.accepting) return;
 
       if (document.pointerLockElement === this.canvas) {
         this.applyLook(e.movementX, e.movementY);
@@ -168,6 +206,7 @@ export class FlightController {
     });
 
     this.canvas.addEventListener("mousedown", (e) => {
+      if (!this.accepting) return;
       this.dragging = true;
       this.lastPointer = { x: e.clientX, y: e.clientY };
     });
@@ -208,17 +247,21 @@ export class FlightController {
       (k.has("ControlLeft") || k.has("ControlRight") ? 1 : 0);
 
     // Spend a frame's worth of mouse movement, then let the keys steer the
-    // same target so both inputs share one smoothing path.
-    this.targetYaw -= this.pendingLookX * LOOK_SENSITIVITY;
-    this.targetPitch = THREE.MathUtils.clamp(
-      this.targetPitch - this.pendingLookY * LOOK_SENSITIVITY,
-      -MAX_PITCH,
-      MAX_PITCH,
-    );
+    // same target so both inputs share one smoothing path. Gated as well as
+    // the listeners are, so nothing buffered can leak through while a section
+    // panel holds the screen.
+    if (this.accepting) {
+      this.targetYaw -= this.pendingLookX * LOOK_SENSITIVITY;
+      this.targetPitch = THREE.MathUtils.clamp(
+        this.targetPitch - this.pendingLookY * LOOK_SENSITIVITY,
+        -MAX_PITCH,
+        MAX_PITCH,
+      );
+    }
     this.pendingLookX = 0;
     this.pendingLookY = 0;
 
-    if (this.active) {
+    if (this.accepting) {
       this.targetYaw += turnInput * YAW_RATE * dt;
     }
 
@@ -243,7 +286,7 @@ export class FlightController {
         ? THREE.MathUtils.clamp((this._yaw - previousYaw) / dt / YAW_RATE, -1, 1)
         : 0;
 
-    if (this.active) {
+    if (this.accepting) {
       const power = boosting ? BOOST_MULTIPLIER : 1;
 
       this.forward.set(0, 0, -1).applyEuler(this.euler);

@@ -64,15 +64,28 @@
       <span class="toast__title" id="toast-title"></span>
     </div>
 
-    <!-- Resume section panel -->
-    <aside class="reader" id="reader" hidden>
-      <button id="reader-close" class="reader__close" type="button" title="Close (Esc)">
-        ×
-      </button>
-      <p class="reader__eyebrow" id="reader-eyebrow"></p>
-      <h2 class="reader__title" id="reader-title"></h2>
-      <div class="reader__body" id="reader-body"></div>
-    </aside>
+    <!-- Resume section panel: a modal, so it swallows every stray click -->
+    <div class="reader-scrim" id="reader-scrim" hidden>
+      <aside
+        class="reader"
+        id="reader"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="reader-title"
+      >
+        <button id="reader-close" class="reader__close" type="button" title="Close (Esc)">
+          ×
+        </button>
+        <div class="reader__inner">
+          <p class="reader__eyebrow" id="reader-eyebrow"></p>
+          <h2 class="reader__title" id="reader-title"></h2>
+          <div class="reader__body" id="reader-body"></div>
+          <button class="reader__dismiss" id="reader-dismiss" type="button">
+            Resume Flight
+          </button>
+        </div>
+      </aside>
+    </div>
 
     <!-- Credits panel -->
     <aside id="credits" class="credits" hidden>

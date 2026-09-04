@@ -70,14 +70,17 @@ async function boot(): Promise<void> {
     muteButton.title = muted ? "Unmute music (M)" : "Mute music (M)";
   });
 
-  const discovery = new Discovery(sections, ambience);
+  // Opening a section suspends the ship so it cannot be flown while reading.
+  const discovery = new Discovery(sections, ambience, (open) =>
+    flight.setInputEnabled(!open),
+  );
 
   document.getElementById("profile-name")!.textContent = profile.name;
   document.getElementById("profile-title")!.textContent = profile.title;
 
   muteButton.addEventListener("click", () => ambience.toggle());
   window.addEventListener("keydown", (e) => {
-    if (e.code === "KeyM") ambience.toggle();
+    if (e.code === "KeyM" && !discovery.isOpen) ambience.toggle();
   });
 
   window.addEventListener("resize", () => {

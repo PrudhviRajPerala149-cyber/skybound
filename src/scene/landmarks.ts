@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { ResumeSection } from "../content/resume";
 import type { IslandCollider } from "./islands";
+import { SHIP_RADIUS } from "../ship/ship";
 import { createRadialTexture } from "./textures";
 
 /**
@@ -19,15 +20,24 @@ const COLORS = [
   0x8fe36f, // green
 ];
 
-/** How far out the ship can be and still trip a landmark. */
+/**
+ * How far out the ship can be and still trip a landmark.
+ *
+ * The floor matters: the island's own collider stops the ship some distance
+ * from the centre, so a trigger tighter than that could never fire on a level
+ * approach — you would bump the island and nothing would happen.
+ */
 function triggerRadiusFor(islandRadius: number): number {
-  return 34 + islandRadius * 0.42;
+  return Math.max(34 + islandRadius * 0.42, islandRadius + SHIP_RADIUS + 16);
 }
 
 export interface Landmark {
   section: ResumeSection;
   position: THREE.Vector3;
+  /** Horizontal reach of the trigger, measured from the island's axis. */
   triggerRadius: number;
+  /** How far above or below the beacon still counts as arriving. */
+  triggerHeight: number;
   found: boolean;
 }
 
@@ -116,6 +126,10 @@ export class LandmarkField {
       section,
       position: group.position,
       triggerRadius: triggerRadiusFor(island.radius),
+      // The beacon hovers above the summit while the ship usually arrives at
+      // the island's own height, so the capture volume has to be tall enough
+      // to span that gap — otherwise reaching the island does nothing.
+      triggerHeight: Math.max(90, island.radius * 1.3),
       found: false,
       group,
       body,
@@ -157,9 +171,18 @@ export class LandmarkField {
       part.body.rotation.y += dt * 0.45;
       part.group.position.y = part.baseY + Math.sin(elapsed * 0.8 + part.phase) * 1.4;
 
+      // A cylinder around the island, not a sphere centred on the beacon:
+      // flying past at rock height and cresting the summit should both count.
+      const horizontal = Math.hypot(
+        shipPosition.x - part.position.x,
+        shipPosition.z - part.position.z,
+      );
+      const vertical = Math.abs(shipPosition.y - part.position.y);
+
       if (
         !discovered &&
-        shipPosition.distanceTo(part.position) <= part.triggerRadius
+        horizontal <= part.triggerRadius &&
+        vertical <= part.triggerHeight
       ) {
         this.extinguish(part);
         discovered = part;

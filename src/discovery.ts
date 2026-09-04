@@ -25,7 +25,7 @@ export class Discovery {
   private readonly toast = el("toast");
   private readonly toastTitle = el("toast-title");
 
-  private readonly reader = el("reader");
+  private readonly scrim = el("reader-scrim");
   private readonly readerEyebrow = el("reader-eyebrow");
   private readonly readerTitle = el("reader-title");
   private readonly readerBody = el("reader-body");
@@ -36,16 +36,28 @@ export class Discovery {
   private toastTimer?: number;
   private panelTimer?: number;
 
+  /**
+   * `onModalChange` lets the caller suspend the flight controls while a
+   * section is open. Discovery stays unaware of the ship itself.
+   */
   constructor(
     private readonly sections: ResumeSection[],
     private readonly ambience: Ambience,
+    private readonly onModalChange: (open: boolean) => void = () => {},
   ) {
     this.buildTracker();
 
     el("reader-close").addEventListener("click", () => this.closeReader());
+    el("reader-dismiss").addEventListener("click", () => this.closeReader());
+
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") this.closeReader();
     });
+  }
+
+  /** True while a section panel has the screen. */
+  get isOpen(): boolean {
+    return !this.scrim.hidden;
   }
 
   private buildTracker(): void {
@@ -115,18 +127,25 @@ export class Discovery {
       }),
     );
 
-    this.reader.hidden = false;
-    this.reader.classList.add("is-open");
+    this.scrim.hidden = false;
+    // Next frame, so the opening transition actually runs.
+    requestAnimationFrame(() => this.scrim.classList.add("is-open"));
+
+    this.onModalChange(true);
   }
 
   /**
-   * The panel never captured input in the first place — flight keys are bound
-   * to the window — so closing it is purely visual.
+   * Hands control back to the ship. Safe to call when nothing is open, which
+   * matters because Escape is a global handler.
    */
   closeReader(): void {
     window.clearTimeout(this.panelTimer);
-    this.reader.classList.remove("is-open");
-    this.reader.hidden = true;
+    if (this.scrim.hidden) return;
+
+    this.scrim.classList.remove("is-open");
+    this.scrim.hidden = true;
+
+    this.onModalChange(false);
   }
 
   get foundCount(): number {

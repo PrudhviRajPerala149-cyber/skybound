@@ -9,6 +9,12 @@ const MODEL_URLS = [
   "assets/models/island-c.glb",
 ].map(assetUrl);
 
+/**
+ * How much of the blocked speed is redirected along the surface. At 1 the ship
+ * keeps all its momentum and skates around the island; at 0 it stops dead.
+ */
+const SLIDE_RETENTION = 0.85;
+
 /** Vertical band over which a collider fades out below the island's summit. */
 const TAPER_BAND = 0.55; // as a fraction of the island's height
 
@@ -43,6 +49,8 @@ export class Archipelago {
   readonly colliders: IslandCollider[] = [];
 
   private readonly spinners: Spinner[] = [];
+  /** Scratch vector for the slide direction; avoids allocating per contact. */
+  private readonly tangent = new THREE.Vector3();
 
   private constructor() {}
 
@@ -141,7 +149,10 @@ export class Archipelago {
 
     this.colliders.push({
       center,
-      radius: Math.max(size.x, size.z) * 0.45,
+      // Averaging the two horizontal extents, rather than taking the larger,
+      // keeps the sphere inside an irregular island instead of ballooning out
+      // to its widest point — which is what made the ship stop in open air.
+      radius: ((size.x + size.z) / 2) * 0.4,
       topY: box.max.y,
       band: Math.max(size.y * TAPER_BAND, 4),
     });
@@ -184,7 +195,22 @@ export class Archipelago {
       position.addScaledVector(offset, effective - dist);
 
       const inward = velocity.dot(offset);
-      if (inward < 0) velocity.addScaledVector(offset, -inward);
+      if (inward < 0) {
+        // Take out the part of the motion driving into the rock…
+        velocity.addScaledVector(offset, -inward);
+
+        // …then spend most of it along the surface rather than losing it. Without
+        // this, flying straight at an island leaves no tangential motion to keep
+        // and the ship simply stops, which reads as being stuck.
+        this.tangent.copy(velocity);
+        if (this.tangent.lengthSq() < 1e-6) {
+          // Dead-on with nothing to follow: any level direction on the surface.
+          this.tangent.set(0, 1, 0).cross(offset);
+          if (this.tangent.lengthSq() < 1e-6) this.tangent.set(1, 0, 0).cross(offset);
+        }
+        this.tangent.normalize();
+        velocity.addScaledVector(this.tangent, -inward * SLIDE_RETENTION);
+      }
 
       hit = true;
     }
